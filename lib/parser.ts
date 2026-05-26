@@ -3,7 +3,7 @@ import { Trade, OrderLevel, OrderBookData, TradeRow } from "./types";
 // ── CSV Parser ────────────────────────────────────────────
 
 export function parseTradeCsv(text: string): TradeRow[] {
-  const lines = text.trim().split("\n");
+  const lines = text.trim().replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
   if (lines.length === 0) return [];
 
   // Auto-detect delimiter
