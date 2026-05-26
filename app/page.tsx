@@ -306,6 +306,8 @@ export default function Home() {
                 onCsvUpload={handleCsvUpload}
                 onGenerateSample={handleGenerateSample}
                 onReset={handleReset}
+                hasData={allTrades.length > 0}
+                totalTrades={allTrades.length}
               />
             )}
             {tab === "data" && (

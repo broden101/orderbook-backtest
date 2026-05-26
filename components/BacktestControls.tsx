@@ -13,6 +13,8 @@ interface Props {
   onCsvUpload: (text: string) => void;
   onGenerateSample: () => void;
   onReset: () => void;
+  hasData: boolean;
+  totalTrades: number;
 }
 
 export function BacktestControls({
@@ -24,6 +26,8 @@ export function BacktestControls({
   onCsvUpload,
   onGenerateSample,
   onReset,
+  hasData,
+  totalTrades,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -77,9 +81,9 @@ export function BacktestControls({
           ) : (
             <button
               onClick={onPlay}
-              disabled={isIdle}
+              disabled={isIdle && !hasData}
               className={`px-6 tool-btn ${
-                isIdle ? "opacity-50 cursor-not-allowed" : ""
+                isIdle && !hasData ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
               ▶ Play
@@ -128,8 +132,8 @@ export function BacktestControls({
                 }`}
                 style={{
                   width: `${
-                    playback.currentIndex > 0
-                      ? (playback.currentIndex / playback.currentIndex) * 100
+                    playback.currentIndex > 0 && totalTrades > 0
+                      ? (playback.currentIndex / totalTrades) * 100
                       : 0
                   }%`,
                 }}
