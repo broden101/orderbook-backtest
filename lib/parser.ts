@@ -11,12 +11,21 @@ export function parseTradeCsv(text: string): TradeRow[] {
   const header = lines[0].split(delim).map((h) => h.trim());
   const rows: TradeRow[] = [];
 
+  // Normalize header to title case for consistent access
+  const normalizeHeader = (h: string) => {
+    const lower = h.toLowerCase();
+    // Map common variants
+    if (lower === "type") return "Side"; // "type" column is actually "Side" in our CSV
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+  };
+  const normHeader = header.map(normalizeHeader);
+
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(delim);
     if (cols.length < 4) continue;
 
     const row: Record<string, string> = {};
-    header.forEach((h, idx) => {
+    normHeader.forEach((h, idx) => {
       row[h] = (cols[idx] || "").trim();
     });
 
