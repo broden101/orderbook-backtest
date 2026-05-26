@@ -7,7 +7,8 @@ import {
   PlaybackState,
   SideFilter,
   TabId,
-  OrderBookData,
+  OrderQueueEntry,
+  OrderQueueRow,
 } from "@/lib/types";
 import {
   parseTradeCsv,
@@ -15,16 +16,21 @@ import {
   buildOrderBook,
   calcChange,
   generateSampleData,
+  parseOrderQueue,
+  buildOrderBookFromQueue,
 } from "@/lib/parser";
 import { OrderBookPanel } from "@/components/OrderBookPanel";
 import { RunningTradePanel } from "@/components/RunningTradePanel";
 import { BacktestControls } from "@/components/BacktestControls";
 import { StatsPanel } from "@/components/StatsPanel";
+import { QueuePanel } from "@/components/QueuePanel";
 
 export default function Home() {
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [displayedTrades, setDisplayedTrades] = useState<Trade[]>([]);
   const [levels, setLevels] = useState<OrderLevel[]>([]);
+  const [queueLevels, setQueueLevels] = useState<OrderLevel[]>([]);
+  const [queueRows, setQueueRows] = useState<OrderQueueRow[]>([]);
   const [summary, setSummary] = useState({
     lastPrice: 0,
     high: 0,
@@ -86,6 +92,41 @@ export default function Home() {
     [loadData]
   );
 
+  // ── Queue Upload ────────────────────────────────────
+
+  const handleQueueUpload = useCallback(
+    (text: string) => {
+      try {
+        // Try JSON first
+        const data = JSON.parse(text);
+        const entries: OrderQueueEntry[] = Array.isArray(data)
+          ? data
+          : data.data || data.queue || [];
+        const rows = parseOrderQueue(entries);
+        setQueueRows(rows);
+        const obLevels = buildOrderBookFromQueue(rows);
+        setQueueLevels(obLevels);
+      } catch {
+        // Try CSV
+        const rows = parseTradeCsv(text);
+        const mapped = rows.map((r, i) => ({
+          price: parseFloat(r.Price) || 0,
+          side: ((r.Side || "").toUpperCase() === "BID" || (r.Side || "").toUpperCase() === "BUY"
+            ? "BID"
+            : "OFFER") as "BID" | "OFFER",
+          lot: parseInt(r.Lot) || 0,
+          freq: parseInt(r.Change || "0") || 0,
+          broker: r.Board || "",
+          time: r.Time || "",
+        }));
+        setQueueRows(mapped);
+        const obLevels = buildOrderBookFromQueue(mapped);
+        setQueueLevels(obLevels);
+      }
+    },
+    []
+  );
+
   const handleGenerateSample = useCallback(() => {
     const trades = generateSampleData();
     loadData(trades);
@@ -96,6 +137,8 @@ export default function Home() {
     setAllTrades([]);
     setDisplayedTrades([]);
     setLevels([]);
+    setQueueLevels([]);
+    setQueueRows([]);
     setSummary({ lastPrice: 0, high: 0, low: 0, open: 0, volume: 0 });
     setPlayback({ status: "idle", currentIndex: 0, speed: 1, elapsed: 0 });
   }, []);
@@ -115,7 +158,6 @@ export default function Home() {
     const startIdx = playback.currentIndex;
 
     if (startIdx >= allTrades.length) {
-      // Reset if done
       setPlayback((p) => ({ ...p, status: "idle", currentIndex: 0 }));
       setDisplayedTrades([]);
       rebuild([]);
@@ -134,7 +176,6 @@ export default function Home() {
           status: "done",
           currentIndex: allTrades.length,
         }));
-        // Final rebuild with all trades
         rebuild(allTrades);
         setDisplayedTrades(allTrades);
         return;
@@ -176,8 +217,6 @@ export default function Home() {
   useEffect(() => {
     if (playback.status === "playing") {
       stopPlayback();
-      // Restart with new speed
-      const idx = playback.currentIndex;
       const spd = playback.speed;
 
       const interval = setInterval(() => {
@@ -207,8 +246,12 @@ export default function Home() {
     0
   );
 
+  // Merge queue levels into order book when available
+  const displayLevels = queueLevels.length > 0 ? queueLevels : levels;
+
   const TABS: { id: TabId; label: string; icon: string }[] = [
     { id: "backtest", label: "Backtest", icon: "🎮" },
+    { id: "queue", label: "Queue", icon: "📋" },
     { id: "data", label: "Data", icon: "📂" },
     { id: "stats", label: "Stats", icon: "📊" },
   ];
@@ -224,6 +267,11 @@ export default function Home() {
           {allTrades.length > 0 && (
             <span className="text-xs text-slate-500">
               {allTrades.length} trades loaded
+            </span>
+          )}
+          {queueRows.length > 0 && (
+            <span className="text-xs text-teal-500">
+              · {queueRows.length} queue entries
             </span>
           )}
         </div>
@@ -249,7 +297,7 @@ export default function Home() {
         {/* LEFT: Order Book */}
         <div className="w-[320px] flex-shrink-0">
           <OrderBookPanel
-            levels={levels}
+            levels={displayLevels}
             lastPrice={summary.lastPrice}
             high={summary.high}
             low={summary.low}
@@ -261,7 +309,7 @@ export default function Home() {
           />
         </div>
 
-        {/* RIGHT: Running Trade + Controls or Data/Stats */}
+        {/* RIGHT: Running Trade + Controls or Data/Stats/Queue */}
         <div className="flex flex-1 gap-2 overflow-hidden">
           {/* Running Trade */}
           <div className="flex-1">
@@ -274,6 +322,8 @@ export default function Home() {
                 setAllTrades([]);
                 setDisplayedTrades([]);
                 setLevels([]);
+                setQueueLevels([]);
+                setQueueRows([]);
                 setSummary({
                   lastPrice: 0,
                   high: 0,
@@ -294,7 +344,7 @@ export default function Home() {
             />
           </div>
 
-          {/* Right sidebar: Controls / Data / Stats */}
+          {/* Right sidebar: Controls / Data / Stats / Queue */}
           <div className="w-[340px] flex-shrink-0 overflow-y-auto">
             {tab === "backtest" && (
               <BacktestControls
@@ -309,6 +359,18 @@ export default function Home() {
                 hasData={allTrades.length > 0}
                 totalTrades={allTrades.length}
               />
+            )}
+            {tab === "queue" && (
+              <div className="space-y-4">
+                <QueuePanel queue={queueRows} />
+                {/* Queue upload */}
+                <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                  <h3 className="mb-3 text-sm font-medium text-slate-200">
+                    📋 Upload Queue Data
+                  </h3>
+                  <QueueUpload onUpload={handleQueueUpload} />
+                </div>
+              </div>
             )}
             {tab === "data" && (
               <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
@@ -334,10 +396,74 @@ export default function Home() {
               </div>
             )}
             {tab === "stats" && (
-              <StatsPanel trades={displayedTrades} levels={levels} />
+              <StatsPanel trades={displayedTrades} levels={displayLevels} />
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Queue Upload Component
+function QueueUpload({ onUpload }: { onUpload: (text: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleFile = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          onUpload(reader.result);
+        }
+      };
+      reader.readAsText(file);
+    },
+    [onUpload]
+  );
+
+  const handlePaste = useCallback(() => {
+    const text = textareaRef.current?.value;
+    if (text && text.trim()) {
+      onUpload(text);
+    }
+  }, [onUpload]);
+
+  return (
+    <div className="space-y-3">
+      <div
+        onClick={() => inputRef.current?.click()}
+        className="cursor-pointer rounded-lg border-2 border-dashed border-slate-700 p-4 text-center hover:border-slate-600"
+      >
+        <p className="text-xs text-slate-400">Upload Queue JSON/CSV</p>
+        <p className="mt-1 text-[10px] text-slate-600">
+          Format: JSON dari growin-fetch-all.py
+        </p>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".json,.csv,.txt"
+          onChange={handleFile}
+          className="hidden"
+        />
+      </div>
+
+      <div>
+        <textarea
+          ref={textareaRef}
+          rows={3}
+          className="tool-input font-mono text-xs"
+          placeholder="Paste queue JSON di sini..."
+        />
+        <button
+          onClick={handlePaste}
+          className="mt-2 w-full tool-btn-ghost text-xs"
+        >
+          📥 Load Queue Data
+        </button>
       </div>
     </div>
   );

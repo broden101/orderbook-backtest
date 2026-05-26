@@ -1,4 +1,4 @@
-import { Trade, OrderLevel, OrderBookData, TradeRow } from "./types";
+import { Trade, OrderLevel, TradeRow, OrderQueueEntry, OrderQueueRow } from "./types";
 
 // ── CSV Parser ────────────────────────────────────────────
 
@@ -43,6 +43,24 @@ export function mapRowsToTrades(rows: TradeRow[]): Trade[] {
       change: price - refPrice,
       changePct,
       side,
+      board: r.Board || "",
+    };
+  });
+}
+
+// ── Order Queue Parser (from Growin JSON) ─────────────────
+
+export function parseOrderQueue(entries: OrderQueueEntry[]): OrderQueueRow[] {
+  return entries.map((e) => {
+    const rawSide = (e.side || "").toString().toUpperCase();
+    const side = rawSide === "BID" || rawSide === "BUY" ? "BID" : "OFFER";
+    return {
+      price: (e.price as number) || 0,
+      side,
+      lot: (e.lot as number) || (e.volume as number) || 0,
+      freq: (e.freq as number) || 0,
+      broker: (e.broker as string) || (e.broker_code as string) || "",
+      time: (e.queue_time as string) || (e.time as string) || "",
     };
   });
 }
@@ -112,6 +130,44 @@ export function buildOrderBook(trades: Trade[]): {
     open,
     volume,
   };
+}
+
+// Build order book from queue data (more accurate - actual bid/offer placed)
+export function buildOrderBookFromQueue(queue: OrderQueueRow[]): OrderLevel[] {
+  if (queue.length === 0) return [];
+
+  const priceMap = new Map<
+    number,
+    { bidLot: number; bidFreq: number; offerLot: number; offerFreq: number }
+  >();
+
+  for (const q of queue) {
+    const entry = priceMap.get(q.price) || {
+      bidLot: 0,
+      bidFreq: 0,
+      offerLot: 0,
+      offerFreq: 0,
+    };
+
+    if (q.side === "BID") {
+      entry.bidLot += q.lot;
+      entry.bidFreq += q.freq || 1;
+    } else {
+      entry.offerLot += q.lot;
+      entry.offerFreq += q.freq || 1;
+    }
+    priceMap.set(q.price, entry);
+  }
+
+  return Array.from(priceMap.entries())
+    .map(([price, d]) => ({
+      price,
+      bidLot: d.bidLot,
+      bidFreq: d.bidFreq,
+      offerLot: d.offerLot,
+      offerFreq: d.offerFreq,
+    }))
+    .sort((a, b) => b.price - a.price);
 }
 
 // Calculate change percentage relative to open
