@@ -55,6 +55,20 @@ export interface OrderQueueRow {
   time: string;
 }
 
+// Queue Event (from growin-queue-poller.py diff output)
+export interface QueueEvent {
+  time: string;
+  order_id: string;
+  side: "BID" | "OFFER";
+  price: number;
+  qty: number;
+  remain_qty: number;
+  action: "PLACED" | "CANCELLED" | "FILLED" | "PARTIAL_FILL";
+  partial: boolean;
+  rank: number;
+  prev_remain?: number;
+}
+
 export interface OrderBookData {
   levels: OrderLevel[];
   lastPrice: number;

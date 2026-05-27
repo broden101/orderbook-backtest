@@ -73,10 +73,14 @@ export function BacktestControls({
         </h3>
 
         <div className="flex items-center gap-2">
-          {/* Play/Pause */}
-          {isPlaying || isPaused ? (
+          {/* Play/Pause/Resume */}
+          {isPlaying ? (
             <button onClick={onPause} className="tool-btn px-6">
               ⏸ Pause
+            </button>
+          ) : isPaused ? (
+            <button onClick={onPlay} className="tool-btn px-6">
+              ▶ Resume
             </button>
           ) : (
             <button

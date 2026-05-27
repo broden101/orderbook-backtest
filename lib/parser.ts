@@ -1,4 +1,4 @@
-import { Trade, OrderLevel, TradeRow, OrderQueueEntry, OrderQueueRow } from "./types";
+import { Trade, OrderLevel, TradeRow, OrderQueueEntry, OrderQueueRow, QueueEvent } from "./types";
 
 // ── CSV Parser ────────────────────────────────────────────
 
@@ -231,4 +231,40 @@ export function tradesToCsv(trades: Trade[]): string {
     )
     .join("\n");
   return header + rows;
+}
+
+// ── Queue Events Parser (from growin-queue-poller.py) ────
+
+export function parseQueueEventsCsv(text: string): QueueEvent[] {
+  const lines = text.trim().replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  if (lines.length < 2) return [];
+
+  const delim = lines[0].includes(";") ? ";" : ",";
+  const header = lines[0].split(delim).map((h) => h.trim().toLowerCase());
+
+  const events: QueueEvent[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(delim);
+    if (cols.length < 6) continue;
+
+    const row: Record<string, string> = {};
+    header.forEach((h, idx) => {
+      row[h] = (cols[idx] || "").trim();
+    });
+
+    events.push({
+      time: row.time || "",
+      order_id: row.order_id || "",
+      side: (row.side?.toUpperCase() === "BID" ? "BID" : "OFFER") as "BID" | "OFFER",
+      price: parseFloat(row.price) || 0,
+      qty: parseInt(row.qty) || 0,
+      remain_qty: parseInt(row.remain_qty) || 0,
+      action: (row.action || "PLACED") as QueueEvent["action"],
+      partial: row.partial?.toLowerCase() === "true",
+      rank: parseInt(row.rank) || -1,
+      prev_remain: row.prev_remain ? parseInt(row.prev_remain) : undefined,
+    });
+  }
+
+  return events;
 }

@@ -9,6 +9,7 @@ import {
   TabId,
   OrderQueueEntry,
   OrderQueueRow,
+  QueueEvent,
 } from "@/lib/types";
 import {
   parseTradeCsv,
@@ -18,6 +19,7 @@ import {
   generateSampleData,
   parseOrderQueue,
   buildOrderBookFromQueue,
+  parseQueueEventsCsv,
 } from "@/lib/parser";
 import { OrderBookPanel } from "@/components/OrderBookPanel";
 import { RunningTradePanel } from "@/components/RunningTradePanel";
@@ -31,6 +33,7 @@ export default function Home() {
   const [levels, setLevels] = useState<OrderLevel[]>([]);
   const [queueLevels, setQueueLevels] = useState<OrderLevel[]>([]);
   const [queueRows, setQueueRows] = useState<OrderQueueRow[]>([]);
+  const [queueEvents, setQueueEvents] = useState<QueueEvent[]>([]);
   const [summary, setSummary] = useState({
     lastPrice: 0,
     high: 0,
@@ -97,6 +100,15 @@ export default function Home() {
   const handleQueueUpload = useCallback(
     (text: string) => {
       try {
+        // Detect queue events CSV (has "action" column from growin-queue-poller.py)
+        if (text.includes("action") && text.includes("order_id")) {
+          const events = parseQueueEventsCsv(text);
+          if (events.length > 0) {
+            setQueueEvents(events);
+            return;
+          }
+        }
+
         // Try JSON first
         const data = JSON.parse(text);
         const entries: OrderQueueEntry[] = Array.isArray(data)
@@ -139,6 +151,7 @@ export default function Home() {
     setLevels([]);
     setQueueLevels([]);
     setQueueRows([]);
+    setQueueEvents([]);
     setSummary({ lastPrice: 0, high: 0, low: 0, open: 0, volume: 0 });
     setPlayback({ status: "idle", currentIndex: 0, speed: 1, elapsed: 0 });
   }, []);
@@ -324,6 +337,7 @@ export default function Home() {
                 setLevels([]);
                 setQueueLevels([]);
                 setQueueRows([]);
+                setQueueEvents([]);
                 setSummary({
                   lastPrice: 0,
                   high: 0,
@@ -362,7 +376,7 @@ export default function Home() {
             )}
             {tab === "queue" && (
               <div className="space-y-4">
-                <QueuePanel queue={queueRows} />
+                <QueuePanel queue={queueRows} events={queueEvents} />
                 {/* Queue upload */}
                 <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
                   <h3 className="mb-3 text-sm font-medium text-slate-200">
