@@ -253,11 +253,33 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playback.speed, playback.status === "playing"]);
 
+  // Scrub to specific index
+  const handleScrub = useCallback(
+    (index: number) => {
+      stopPlayback();
+      const clampedIdx = Math.max(0, Math.min(index, allTrades.length));
+      const subset = allTrades.slice(0, clampedIdx);
+      setDisplayedTrades(subset);
+      rebuild(subset);
+      setPlayback((p) => ({
+        ...p,
+        status: clampedIdx === 0 ? "idle" : clampedIdx >= allTrades.length ? "done" : "paused",
+        currentIndex: clampedIdx,
+      }));
+    },
+    [allTrades, rebuild, stopPlayback]
+  );
+
   const chgPct = calcChange(summary.lastPrice, summary.open);
   const value = displayedTrades.reduce(
     (s, t) => s + t.price * t.lot * 100,
     0
   );
+
+  // Current time of playback (from last displayed trade)
+  const currentTradeTime = displayedTrades.length > 0
+    ? displayedTrades[displayedTrades.length - 1].time
+    : "";
 
   // Merge queue levels into order book when available
   const displayLevels = queueLevels.length > 0 ? queueLevels : levels;
@@ -370,8 +392,11 @@ export default function Home() {
                 onCsvUpload={handleCsvUpload}
                 onGenerateSample={handleGenerateSample}
                 onReset={handleReset}
+                onScrub={handleScrub}
                 hasData={allTrades.length > 0}
                 totalTrades={allTrades.length}
+                currentTime={currentTradeTime}
+                allTrades={allTrades}
               />
             )}
             {tab === "queue" && (
