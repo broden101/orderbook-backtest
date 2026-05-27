@@ -24,10 +24,10 @@ export function RunningTradePanel({
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to latest trade
+  // Auto-scroll to top (newest trade appears here)
   useEffect(() => {
     if (scrollRef.current && isPlaying) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTop = 0;
     }
   }, [trades.length, isPlaying]);
 
@@ -35,6 +35,9 @@ export function RunningTradePanel({
     filter === "all"
       ? trades
       : trades.filter((t) => t.side === filter);
+
+  // Newest first (top → bottom)
+  const reversed = [...filtered].reverse();
 
   return (
     <div className="flex h-full flex-col rounded-xl border border-slate-800 bg-slate-900">
@@ -96,14 +99,14 @@ export function RunningTradePanel({
 
       {/* Trade rows */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        {filtered.length === 0 ? (
+        {reversed.length === 0 ? (
           <div className="flex items-center justify-center py-12 text-sm text-slate-500">
             {totalTrades === 0
               ? "No trades yet — load or start playback"
               : "No trades match filter"}
           </div>
         ) : (
-          filtered.map((trade) => {
+          reversed.map((trade) => {
             const isBuy = trade.side === "BUY";
             const sideColor = isBuy ? "text-green-400" : "text-red-400";
             const chgColor = trade.changePct >= 0 ? "text-green-400" : "text-red-400";
