@@ -376,7 +376,17 @@ export default function Home() {
             )}
             {tab === "queue" && (
               <div className="space-y-4">
-                <QueuePanel queue={queueRows} events={queueEvents} />
+                <QueuePanel
+                  queue={queueRows}
+                  events={queueEvents}
+                  onTimeChange={(levels, filteredQueue) => {
+                    setQueueLevels(levels);
+                    // Update queue rows count display
+                    if (filteredQueue.length !== queueRows.length) {
+                      // Don't replace original rows, just update levels
+                    }
+                  }}
+                />
                 {/* Queue upload */}
                 <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
                   <h3 className="mb-3 text-sm font-medium text-slate-200">

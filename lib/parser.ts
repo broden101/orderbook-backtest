@@ -70,6 +70,10 @@ export function parseOrderQueue(entries: OrderQueueEntry[]): OrderQueueRow[] {
       freq: (e.freq as number) || 0,
       broker: (e.broker as string) || (e.broker_code as string) || "",
       time: (e.queue_time as string) || (e.time as string) || "",
+      timestamp: (e.timestamp as string) || (e.time as string) || undefined,
+      order_id: (e.order_id as string) || undefined,
+      remain_qty: (e.remain_qty as number) || undefined,
+      is_partial_match: (e.is_partial_match as boolean) || undefined,
     };
   });
 }

@@ -53,6 +53,10 @@ export interface OrderQueueRow {
   freq: number;
   broker: string;
   time: string;
+  timestamp?: string; // ISO timestamp from Growin order-queue
+  order_id?: string;
+  remain_qty?: number;
+  is_partial_match?: boolean;
 }
 
 // Queue Event (from growin-queue-poller.py diff output)
