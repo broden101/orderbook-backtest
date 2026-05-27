@@ -379,11 +379,11 @@ export default function Home() {
                 <QueuePanel
                   queue={queueRows}
                   events={queueEvents}
-                  onTimeChange={(levels, filteredQueue) => {
-                    setQueueLevels(levels);
-                    // Update queue rows count display
-                    if (filteredQueue.length !== queueRows.length) {
-                      // Don't replace original rows, just update levels
+                  onQueueUpdate={(levels, visibleQueue) => {
+                    if (levels.length > 0) {
+                      setQueueLevels(levels);
+                    } else {
+                      setQueueLevels([]);
                     }
                   }}
                 />
